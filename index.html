@@ -129,6 +129,52 @@ p{color:var(--muted);line-height:1.55}
  .pedal{height:65px}.pedal.gas{height:92px}
  #reverse{bottom:113px}#speedBox{bottom:12px}
 }
+/* ---- Nexdew weapons / Vishesh boss fight (all inside #hud) ---- */
+#enemyPanel{position:absolute;left:12px;top:calc(max(12px,env(safe-area-inset-top)) + 150px);
+ width:min(330px,calc(100vw - 184px));background:#2a1216e8;border-color:#ff5a6a80}
+#enemyName{font-size:12px;font-weight:850;color:#ffb3bb;letter-spacing:.4px}
+#enemyPanel .bar{height:9px;margin-top:6px}
+#enemyPanel .bar i{background:linear-gradient(90deg,#e0263a,#ff9a3d);transition:width .18s}
+#enemySub{font-size:10px;color:var(--muted);margin-top:5px}
+.card .btn{white-space:nowrap}
+#jokeBubble{position:absolute;left:50%;top:57%;transform:translateX(-50%);
+ width:max-content;max-width:min(460px,88vw);background:#fff8dcf5;color:#3a2c10;
+ border:2px solid var(--gold);border-radius:18px;padding:11px 18px;font-weight:750;
+ font-size:14px;line-height:1.4;text-align:center;box-shadow:0 8px 30px #0006;
+ animation:jokePop .25s ease-out}
+#jokeBubble b{color:#c0392b}
+@keyframes jokePop{from{transform:translateX(-50%) scale(.6);opacity:0}
+ to{transform:translateX(-50%) scale(1);opacity:1}}
+#storeBtn{position:absolute;left:50%;transform:translateX(-50%);
+ bottom:calc(max(26px,env(safe-area-inset-bottom)) + 124px);pointer-events:auto;
+ background:#0a1e2ef2;border:2px solid var(--accent);border-radius:16px;padding:9px 20px;
+ font-weight:850;font-size:13px;color:var(--accent);line-height:1.35;white-space:nowrap;
+ animation:storeGlow 2s ease-in-out infinite}
+#storeBtn small{display:block;font-size:10px;color:var(--muted);font-weight:700}
+@keyframes storeGlow{0%,100%{box-shadow:0 4px 18px #65edbe33}50%{box-shadow:0 4px 34px #65edbeaa}}
+#weaponHud{position:absolute;left:max(14px,env(safe-area-inset-left));
+ bottom:calc(max(25px,env(safe-area-inset-bottom)) + 170px);pointer-events:auto;
+ text-align:left;padding:8px 12px;border-color:#65edbe70}
+#weaponName{font-size:12px;font-weight:850;color:var(--accent)}
+#weaponInfo{font-size:10px;color:var(--muted);margin-top:2px}
+#fireBtn{position:absolute;right:max(16px,env(safe-area-inset-right));
+ bottom:calc(max(25px,env(safe-area-inset-bottom)) + 196px);width:76px;height:76px;
+ border-radius:50%;pointer-events:auto;touch-action:none;
+ background:radial-gradient(circle at 38% 35%,#ff6a55,#b30f0f);border:3px solid #ffb0a4;
+ font-size:12px;font-weight:900;line-height:1.2;box-shadow:0 4px 24px #ff1a0066}
+#fireBtn.pressed{transform:scale(.93);background:radial-gradient(circle at 38% 35%,#ff9a8a,#d31f1f)}
+#fireBtn.cooling{filter:saturate(.35) brightness(.8)}
+#flash{position:absolute;inset:0;background:#fffbe6;opacity:0;pointer-events:none}
+@media(max-width:480px){
+ #enemyPanel{width:calc(100vw - 150px)}
+ #weaponHud{bottom:172px;left:10px}#fireBtn{bottom:196px;right:12px;width:68px;height:68px}
+}
+@media(max-height:500px){
+ #enemyPanel{top:136px;width:min(300px,calc(100vw - 150px));padding:8px 11px}#enemySub{display:none}
+ #weaponHud{bottom:138px}#storeBtn{bottom:104px}
+ #fireBtn{right:170px;bottom:14px;width:66px;height:66px}
+ #jokeBubble{top:60%;font-size:12px;padding:8px 14px}
+}
 </style>
 </head>
 <body>
@@ -156,6 +202,13 @@ p{color:var(--muted);line-height:1.55}
   <div id="distanceReadout">0 m</div>
  </div>
  <div id="notice"></div>
+ <div id="enemyPanel" class="hudBox hidden"><div id="enemyName"></div>
+  <div class="bar"><i id="enemyHp"></i></div><div id="enemySub"></div></div>
+ <div id="jokeBubble" class="hidden"></div>
+ <button id="storeBtn" class="hidden">⚡ Enter Nexdew Technologies<small>Weapon store · mods for your ride</small></button>
+ <button id="weaponHud" class="hudBox hidden"><div id="weaponName"></div><div id="weaponInfo"></div></button>
+ <button id="fireBtn" class="hidden">🔥<br>FIRE</button>
+ <div id="flash"></div>
 </div>
 <div id="input" class="hidden">
  <div id="wheelZone"><span id="wheelLabel">DRAG TO STEER</span><div id="wheel"></div></div>
@@ -215,6 +268,53 @@ const CARS = [
  {name:'Side-Seat Scooty',tag:'Scooty with a side seat · Jatin rides, Vishesh sits in the side seat',price:600,color:0xe8743b,
   accel:5.6,brake:10.5,handling:1.4,top:19,kind:'scooty',hx:.95,hz:1.05,cam:.85}
 ];
+// Nexdew Technologies weapon store sits on the colony lot right beside the start (door faces x=0 road).
+const STORE={x:26,z:26,door:{x:14,z:26},radius:17};
+const BOSS_SPAWN={x:40,z:-80}; // on the road in front of Model Town Market
+const RANGE=85;               // auto-aim reach in metres
+const JOKE_EVERY=3;           // Vishesh cracks a joke on every 3rd hit
+const WEAPONS=[
+ {name:'Rubber Bullet Gun',emoji:'🔫',price:100,damage:5,cooldown:.22,speed:60,color:0xffe066,size:.13,
+  desc:'Pew pew. Tickles more than it hurts'},
+ {name:'Paintball Blaster',emoji:'🎨',price:350,damage:12,cooldown:.32,speed:55,color:0xff4fd8,size:.18,
+  desc:'Holi on wheels'},
+ {name:'Mirchi Cannon',emoji:'🌶️',price:800,damage:25,cooldown:.55,speed:50,color:0xff3b1f,size:.24,
+  desc:'Bhut jolokia shells · extra spicy'},
+ {name:'Rocket Launcher',emoji:'🚀',price:1500,damage:50,cooldown:1,speed:44,color:0xff8c1a,size:.3,splash:6,
+  desc:'Hits everything in the blast'},
+ {name:'ND Plasma Laser',emoji:'⚡',price:2800,damage:80,cooldown:.8,speed:95,color:0x65edbe,size:.22,
+  desc:'Nexdew R&D prototype · lightning fast'},
+ {name:'Desi Nuke',emoji:'☢️',price:5000,damage:9999,cooldown:4,speed:38,color:0xb6ff3b,size:.45,splash:28,
+  desc:'Wipes out everything nearby'}
+];
+const VISHESH_JOKES=[
+ 'Is that a rubber bullet? My nani throws chappals harder! 🩴',
+ 'You call that a rocket? I have seen bigger dosas! 🫓',
+ 'Aim thoda left, bhai… no, your OTHER left!',
+ 'Panipat has seen three battles. You are the fourth — and the funniest! ⚔️',
+ 'My WiFi has better aim than you, and it disconnects every five minutes! 📶',
+ 'Every hit costs you coins. Every miss costs you dignity! 💸',
+ 'I told my manager I would be late. Now look — I AM the boss! 😎',
+ 'Why did the scooty go to therapy? Too many side-seat issues!',
+ 'Nexdew sold you that? Ask for a refund, yaar!',
+ 'Traffic signal is red, your aim is also red. Both are stopping progress! 🚦',
+ 'Ouch! Okay, that one tickled. Do it again… no wait, DON’T!',
+ 'Jatin, you drive like Google Maps saying “recalculating” forever!',
+ 'Why do skeletons never fight? They don’t have the guts… wait, why did I say that? 😰',
+ 'I am 300 HP of pure Panipat handloom — soft, but durable! 🧵',
+ 'Why did the car break up with the road? Too many speed breakers in the relationship! 💔'
+];
+const SKELETON_JOKES=[
+ 'I’m back — and I’ve lost a LOT of weight! 💀',
+ 'You can’t hurt me, I’m all bones and no body. Nobody! Get it? 🦴',
+ 'I’d laugh harder, but I don’t have lungs! 😂',
+ 'Humerus, isn’t it? Get it… HUMERUS! 🦴',
+ 'My bull runs on ghaas, your car runs on petrol. Who’s eco-friendly now? 🐂',
+ 'This bull has no brakes. Neither did your driving test!',
+ 'I’ve got a bone to pick with you, Jatin!',
+ 'Skeleton crew reporting for duty! 🫡',
+ 'Why didn’t the skeleton go to the party? He had no BODY to go with! 🎉'
+];
 // Double-tap either of these (or press V) to make Vishesh jump off.
 const ND_LOGO='data:image/png;base64,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';
 // Stylised Panipat: Model Town fills the east (x>0), Jattal Road (z=0) runs west
@@ -239,7 +339,10 @@ const MISSIONS = [
  {name:'NH-44 Valet',type:'parking',time:170,reward:650,
   text:'Cross Model Town and park precisely in the bay beside G.T. Road (NH-44).',
   points:[[4,-64],[64,-76],[144,-76],[164,-16],[167,48]],
-  parkYaw:0,traffic:19}
+  parkYaw:0,traffic:19},
+ {name:'Vishesh Boss Hunt',type:'boss',time:300,reward:800,
+  text:'Vishesh has gone rogue outside Model Town Market! Arm your ride at Nexdew Technologies (right next to the start), shoot him down, then clear Skeleton Vishesh, his black bull and the skeleton army that bursts out of his crate.',
+  points:[[BOSS_SPAWN.x,BOSS_SPAWN.z]],traffic:8}
 ];
 
 // ---------- Persistent save / economy ----------
@@ -247,7 +350,7 @@ class SaveSystem {
  constructor(){
   this.available=true;
   this.data={coins:2500,selected:0,owned:[0,4,5],upgrades:{},completed:{},
-   settings:{sound:true,quality:'high'}};
+   weapons:[],activeWeapon:-1,settings:{sound:true,quality:'high'}};
   try {
    const raw=JSON.parse(localStorage.getItem('cityshift-save-v1')||'null');
    if(raw&&typeof raw==='object'){
@@ -266,6 +369,10 @@ class SaveSystem {
      if(c&&Number.isFinite(c.stars))
       this.data.completed[i]={stars:clamp(Math.floor(c.stars),1,3)};
     }
+    this.data.weapons=[...new Set(Array.isArray(raw.weapons)?
+      raw.weapons.filter(v=>Number.isInteger(v)&&v>=0&&v<WEAPONS.length):[])];
+    this.data.activeWeapon=this.data.weapons.includes(raw.activeWeapon)?raw.activeWeapon:
+     (this.data.weapons.at(-1)??-1);
     this.data.settings.sound=raw.settings?.sound!==false;
     this.data.settings.quality=raw.settings?.quality==='low'?'low':'high';
    }
@@ -283,7 +390,7 @@ class SaveSystem {
    handling:c.handling*(1+.09*u.handling),
    top:c.top*(1+.09*u.speed)};
  }
- unlockedMission(i){return i===0||!!this.data.completed[i-1]}
+ unlockedMission(i){return i===0||MISSIONS[i].type==='boss'||!!this.data.completed[i-1]}
 }
 class Economy {
  constructor(save){this.save=save}
@@ -299,6 +406,18 @@ class Economy {
   if(!d.owned.includes(id)||u[key]>=3||d.coins<cost)return false;
   d.coins-=cost;u[key]++;d.upgrades[id]=u;this.save.write();return true;
  }
+ buyWeapon(i){
+  const d=this.save.data;
+  if(d.weapons.includes(i)||d.coins<WEAPONS[i].price)return false;
+  d.coins-=WEAPONS[i].price;d.weapons.push(i);d.activeWeapon=i;
+  this.save.write();return true;
+ }
+ selectWeapon(i){
+  const d=this.save.data;
+  if(!d.weapons.includes(i))return false;
+  d.activeWeapon=i;this.save.write();return true;
+ }
+ bounty(amount){this.save.data.coins+=amount;this.save.write()}
  reward(id,health,left){
   const d=this.save.data,first=!d.completed[id];
   const stars=health>=90&&left>MISSIONS[id].time*.2?3:health>=60?2:1;
@@ -345,7 +464,7 @@ class AudioSystem {
   }catch(e){console.warn('Audio unavailable',e);this.ctx=null}
  }
  setEnabled(on){
-  this.save.data.settings.sound=on;this.save.write();
+  this.save.data.settings.sound=on;this.save.write();if(!on)this.hush();
   if(this.ctx)this.master.gain.setTargetAtTime(on?.28:0,this.ctx.currentTime,.04);
  }
  tone(freq,duration=.1,delay=0,type='sine',volume=.2){
@@ -387,6 +506,43 @@ class AudioSystem {
   o.connect(g);g.connect(this.master);o.start(t);lfo.start(t);o.stop(t+2);lfo.stop(t+2);
  }
  crateDrop(){this.tone(110,.18,0,'square',.25);this.tone(1318,.12,.12,'triangle',.12)}
+ // Filtered noise burst: the body of every gunshot and explosion.
+ noise(cutoff,volume,duration,delay=0){
+  if(!this.ctx)return;
+  const c=this.ctx,t=c.currentTime+delay,n=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+  n.buffer=this.noiseBuffer;f.type='lowpass';f.frequency.value=cutoff;
+  g.gain.setValueAtTime(volume,t);g.gain.exponentialRampToValueAtTime(.001,t+duration);
+  n.connect(f);f.connect(g);g.connect(this.master);n.start(t);n.stop(t+duration+.02);
+ }
+ gunshot(i){
+  this.noise([3200,2400,1500,900,4200,380][i]??1500,[.22,.28,.38,.45,.22,.6][i]??.3,[.07,.1,.16,.32,.1,.9][i]??.1);
+  if(i===4){this.tone(1500,.1,0,'sawtooth',.09);this.tone(760,.12,.03,'sawtooth',.07)}
+  if(i===5)this.tone(46,1.2,0,'sawtooth',.4);
+ }
+ enemyHit(){this.tone(440,.06,0,'square',.13);this.tone(330,.1,.04,'triangle',.11)}
+ boom(big){
+  this.noise(big?300:700,big?.9:.5,big?1.6:.45);
+  this.tone(big?38:62,big?1.4:.35,0,'triangle',big?.6:.35);
+ }
+ bones(){[660,520,390].forEach((f,i)=>this.tone(f,.07,i*.06,'square',.1))}
+ moo(){ // the black bull's bellow
+  if(!this.ctx)return;
+  const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+  o.type='sawtooth';o.frequency.setValueAtTime(120,t);o.frequency.linearRampToValueAtTime(82,t+.9);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22,t+.12);g.gain.exponentialRampToValueAtTime(.001,t+1.1);
+  o.connect(g);g.connect(this.master);o.start(t);o.stop(t+1.15);
+ }
+ // Vishesh actually says his jokes out loud (browser text-to-speech, follows the sound setting).
+ speak(text,pitch=1.2){
+  if(!this.save.data.settings.sound||!window.speechSynthesis)return;
+  try{
+   const u=new SpeechSynthesisUtterance(text.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu,'').trim());
+   const voice=speechSynthesis.getVoices().find(v=>/^en[-_]IN/i.test(v.lang));
+   if(voice)u.voice=voice;u.lang=voice?.lang||'en-IN';u.rate=1.05;u.pitch=pitch;
+   speechSynthesis.cancel();speechSynthesis.speak(u);
+  }catch(e){}
+ }
+ hush(){try{window.speechSynthesis?.cancel()}catch(e){}}
  update(v,gas,brake,active){
   if(!this.ctx)return;
   const t=this.ctx.currentTime,rev=44+Math.abs(v)*4+gas*23;
@@ -415,16 +571,26 @@ function cylinder(parent,r1,r2,h,color,x=0,y=0,z=0,sides=8){
  const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,sides),mat(color));
  m.position.set(x,y,z);m.castShadow=true;parent.add(m);return m;
 }
-function carModel(id=0,color=CARS[id].color){
+// riders=true (player's car only): see-through glass with Jatin driving and Vishesh riding shotgun.
+function carModel(id=0,color=CARS[id].color,riders=false){
  const root=new THREE.Group(),wheels=[],fronts=[];
- const short=id===1, length=short?3.65:4.15;
+ const short=id===1, length=short?3.65:4.15,tint=riders?glassMaterial:0x315568,cabin=short?1.65:1.95;
  box(root,1.86,.55,length,color,0,.65,0);
  box(root,1.73,.18,length-.16,color,0,.95,0);
- box(root,1.53,.65,short?1.65:1.95,color,0,1.23,-.22);
- box(root,1.38,.44,.035,0x315568,0,1.26,.77);
- box(root,1.38,.4,.035,0x315568,0,1.26,short?-1.05:-1.22);
+ if(riders){
+  // Hollow cabin with a panoramic glass roof, so the chase camera can see the riders from above.
+  const front=-.22+cabin/2-.05,back=-.22-cabin/2+.05;
+  box(root,1.45,.04,cabin-.1,glassMaterial,0,1.52,-.22,false);
+  for(const x of [-.715,.715])box(root,.1,.08,cabin,color,x,1.515,-.22);
+  for(const z of [front,back]){
+   box(root,1.53,.08,.1,color,0,1.515,z);
+   for(const x of [-.73,.73])box(root,.08,.6,.08,color,x,1.2,z);
+  }
+ }else box(root,1.53,.65,cabin,color,0,1.23,-.22);
+ box(root,1.38,.44,.035,tint,0,1.26,riders?-.22+cabin/2+.015:.77,!riders);
+ box(root,1.38,.4,.035,tint,0,1.26,short?-1.05:-1.22,!riders);
  for(const s of [-1,1]){
-  box(root,.035,.42,1.48,0x315568,s*.78,1.25,-.25);
+  box(root,.035,.42,1.48,tint,s*.78,1.25,-.25,!riders);
   box(root,.045,.49,.1,color,s*.805,1.25,-.24);
   box(root,.17,.16,.32,color,s*1.02,1.02,.61);
   box(root,.42,.19,.045,0xfff2bd,s*.57,.77,length/2+.015);
@@ -442,11 +608,19 @@ function carModel(id=0,color=CARS[id].color){
   hub.rotation.z=Math.PI/2;pivot.add(hub);
   wheels.push({tire,hub});if(z>0)fronts.push(pivot);
  }
- root.userData={wheels,fronts};return root;
+ root.userData={wheels,fronts};
+ if(riders){
+  // Right-hand drive: Jatin on the right (-x when facing +z), Vishesh beside him.
+  const jatin=sitPose(dummyModel(...JATIN),-1.12),vishesh=sitPose(dummyModel(...VISHESH),-.3);
+  jatin.scale.setScalar(.83);jatin.position.set(-.41,.64,.12);
+  vishesh.scale.setScalar(.83);vishesh.position.set(.41,.64,.12);
+  root.add(jatin,vishesh);root.userData.riders={jatin,vishesh};
+ }
+ return root;
 }
 function vehicleModel(id){
  const c=CARS[id];
- return c.kind==='heli'?chinookModel(c.color):c.kind==='scooty'?scootyModel(c.color):carModel(id);
+ return c.kind==='heli'?chinookModel(c.color):c.kind==='scooty'?scootyModel(c.color):carModel(id,c.color,true);
 }
 function wheel(parent,r,w,x,y,z,list){
  const tire=new THREE.Mesh(new THREE.CylinderGeometry(r,r,w,12),mat(0x20272b));
@@ -729,7 +903,9 @@ class World {
    const style=DISTRICTS.style[kind];
    for(const ox of [-14,14])for(const oz of [-14,14]){
     const x=cx+ox,z=cz+oz,w=style.size+r()*5,d=style.size+r()*5,h=style.h+r()*style.extra;
-    box(root,w,h,d,style.palette[Math.floor(r()*style.palette.length)],x,h/2+.25,z);
+    const color=style.palette[Math.floor(r()*style.palette.length)];
+    if(x===STORE.x&&z===STORE.z)continue; // Nexdew Technologies owns this lot (see landmarks)
+    box(root,w,h,d,color,x,h/2+.25,z);
     box(root,w+.5,.4,d+.5,style.roof,x,h+.35,z);
     this.obstacle(x,z,w/2,d/2,0,h+.55);
     // Black rooftop water tanks, a Panipat skyline staple.
@@ -873,6 +1049,42 @@ class World {
    ['MODEL TOWN · PANIPAT','↑  Model Town Market','←  Sondhapur (Jattal Rd)','→  G.T. Road · NH-44']);
   this.roadBoard(180,-45,0,6,2.6,'boardGT',['G.T. ROAD · NH-44','↑  Karnal · Ambala','↓  Delhi']);
   this.roadBoard(-173,-16,0,5.5,2.2,'boardSondhapur',['SONDHAPUR','Village · सोंधापुर']);
+  this.nexdewStore();
+ }
+ // Nexdew Technologies: dark glass tech showroom with the ND logo, facade facing the start road (west).
+ nexdewStore(){
+  const root=this.root,{x,z}=STORE,fx=x-7,face=-Math.PI/2,neon=new THREE.MeshStandardMaterial(
+   {color:0x65edbe,emissive:0x2fbf8f,emissiveIntensity:1.2});
+  // Back block, first-floor overhang and side walls leave a 3 m deep glass showroom at the front.
+  box(root,11,10,18,0x0d2231,x+1.5,5.25,z);
+  box(root,3,3.7,18,0x0d2231,fx+1.5,8.4,z);
+  for(const s of [-1,1])box(root,3,6.2,2,0x0d2231,fx+1.5,3.45,z+s*8);
+  box(root,14.8,.6,18.8,0x17364a,x,10.5,z);
+  box(root,.12,.14,18.6,neon,fx-.35,10.1,z,false);
+  box(root,.12,.14,18.6,neon,fx-.35,.45,z,false);
+  box(root,.1,6.2,14,glassMaterial,fx-.06,3.45,z,false);
+  for(const s of [-1,1]){
+   box(root,.7,10,.7,0x1a3a4a,fx-.2,5.25,z+s*8.8);
+   box(root,.08,6.2,.12,neon,fx-.12,3.45,z+s*7,false);
+  }
+  // Showroom: plinths with a turret and a rocket on display, lit by a neon ceiling strip.
+  box(root,.1,.1,13,neon,fx+1.5,6.45,z,false);
+  for(const s of [-1,1])box(root,2,.8,2.4,0x21485e,fx+1.5,.65,z+s*3.5);
+  box(root,1.1,.45,1.1,0x37474f,fx+1.5,1.3,z-3.5);
+  cylinder(root,.12,.14,1.6,0x65edbe,fx+.9,1.45,z-3.5,10).rotation.z=Math.PI/2;
+  cylinder(root,.22,.22,1.5,0xff8c1a,fx+1.5,1.8,z+3.5,10);
+  cylinder(root,0,.22,.45,0xd8403a,fx+1.5,2.78,z+3.5,10);
+  this.panel(fx-.08,8.35,z,face,15,1.9,'nexdewSign',(ctx,cw,ch)=>{
+   ctx.fillStyle='#061520';ctx.fillRect(0,0,cw,ch);
+   ctx.strokeStyle='#65edbe';ctx.lineWidth=6;ctx.strokeRect(6,6,cw-12,ch-12);
+   fitText(ctx,'NEXDEW TECHNOLOGIES',cw/2,ch*.38,cw-60,62,'#65edbe','900');
+   fitText(ctx,'WEAPON STORE · VEHICLE MODS',cw/2,ch*.76,cw-80,32,'#ffd275','700');
+  });
+  // Rooftop billboard with the ND logo, readable from far down the road.
+  box(root,.3,4.6,5.6,0x17364a,x-1,13.5,z);
+  for(const s of [-1,1])box(root,.25,2.6,.25,0x17364a,x-1,11.6,z+s*2);
+  decal(root,ndLogo(),5.1,4.15,x-1.16,13.5,z,face);
+  this.obstacle(x,z,7,9,0,10.8);
  }
  tree(x,z,r){
   if(DISTRICTS.noTrees.some(([tx,tz])=>Math.hypot(x-tx,z-tz)<1))return;
@@ -917,7 +1129,7 @@ class World {
 // ---------- Mobile / keyboard input ----------
 class InputSystem {
  constructor(game){
-  this.game=game;this.keys=new Set();this.gas=false;this.brake=false;
+  this.game=game;this.keys=new Set();this.gas=false;this.brake=false;this.fire=false;
   this.steer=0;this.wheelPointer=null;this.pedalPointers={};
   const wheel=$('wheelZone');
   wheel.addEventListener('pointerdown',e=>{
@@ -968,16 +1180,31 @@ class InputSystem {
   window.addEventListener('keydown',e=>{
    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
    if(e.repeat)return;
-   this.keys.add(e.key.toLowerCase());
-   if(e.key.toLowerCase()==='r')game.toggleGear();
-   if(e.key.toLowerCase()==='v')game.visheshJump();
+   const key=e.key.toLowerCase();
+   this.keys.add(key);
+   if(key==='r')game.toggleGear();
+   if(key==='v')game.visheshJump();
+   if(key==='f'&&game.state==='playing'){game.audio.init();game.bossSystem.fire(false)}
+   if(key==='q')game.bossSystem.cycleWeapon();
    if(e.key==='Escape'){
     if(game.state==='playing')game.pause();
     else if(game.state==='paused')game.resume();
+    else if(game.state==='store')game.closeStore();
    }
   });
   window.addEventListener('keyup',e=>this.keys.delete(e.key.toLowerCase()));
   window.addEventListener('blur',()=>{this.clear();if(game.state==='playing')game.pause()});
+  // FIRE: tap for one shot, hold for auto-fire (BossSystem reads this.fire every step).
+  const fire=$('fireBtn');
+  fire.addEventListener('pointerdown',e=>{
+   if(game.state!=='playing')return;
+   game.audio.init();this.fire=true;fire.classList.add('pressed');
+   fire.setPointerCapture(e.pointerId);game.bossSystem.fire(false);e.preventDefault();
+  });
+  const releaseFire=()=>{this.fire=false;fire.classList.remove('pressed')};
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])fire.addEventListener(type,releaseFire);
+  $('weaponHud').onclick=()=>{game.audio.init();game.bossSystem.cycleWeapon()};
+  $('storeBtn').onclick=()=>{game.audio.init();game.audio.click();game.openStore()};
   document.addEventListener('visibilitychange',()=>{
    if(document.hidden){this.clear();if(game.state==='playing')game.pause()}
   });
@@ -991,8 +1218,9 @@ class InputSystem {
     (k.has('a')||k.has('arrowleft')?1:0),-1,1)};
  }
  clear(){
-  this.keys.clear();this.gas=this.brake=false;this.steer=0;this.wheelPointer=null;
+  this.keys.clear();this.gas=this.brake=this.fire=false;this.steer=0;this.wheelPointer=null;
   this.pedalPointers={};$('gas').classList.remove('pressed');$('brake').classList.remove('pressed');
+  $('fireBtn').classList.remove('pressed');
   this.drawWheel();
  }
 }
@@ -1305,6 +1533,594 @@ class TrafficSystem {
  }
 }
 
+// ---------- Skeleton army, black bull and vehicle weapon mounts ----------
+const SHARED_GEOMETRY=new Set([cubeGeometry,planeGeometry]);
+function disposeTree(root){
+ root.traverse(o=>{if(o.isMesh&&!SHARED_GEOMETRY.has(o.geometry))o.geometry.dispose()});
+}
+let boneGeometry=null;
+function bones(){
+ if(!boneGeometry){
+  boneGeometry={skull:new THREE.SphereGeometry(.12,10,7),neck:new THREE.CylinderGeometry(.035,.045,.08,6),
+   ring:new THREE.TorusGeometry(.11,.022,6,16),band:new THREE.TorusGeometry(.125,.018,6,16),
+   shaft:new THREE.CylinderGeometry(.014,.014,1.55,5),tip:new THREE.CylinderGeometry(0,.045,.18,5),
+   shield:new THREE.SphereGeometry(1,14,10)};
+  Object.values(boneGeometry).forEach(g=>SHARED_GEOMETRY.add(g));
+ }
+ return boneGeometry;
+}
+// Standing skeleton (origin at the pelvis, feet 0.6 below), same posable limbs as dummyModel.
+function skeletonModel(bone=0xe9e4d0){
+ const G=bones(),d=new THREE.Group(),dark=0x2a2420,b=mat(bone,.6),arms=[],hips=[],knees=[];
+ box(d,.3,.12,.18,bone,0,.06,0);
+ box(d,.06,.34,.06,bone,0,.3,-.04);
+ for(const [w,y] of [[.3,.28],[.34,.36],[.34,.44],[.3,.52]])box(d,w,.04,.2,bone,0,y,0);
+ box(d,.05,.28,.03,bone,0,.4,.09);
+ box(d,.44,.05,.09,bone,0,.58,0);
+ const neck=new THREE.Mesh(G.neck,b);neck.position.y=.64;d.add(neck);
+ const skull=new THREE.Mesh(G.skull,b);skull.position.y=.76;skull.scale.set(1,1.05,1.08);
+ skull.castShadow=true;d.add(skull);
+ for(const s of [-1,1])box(d,.05,.045,.02,dark,s*.045,.78,.118,false);
+ box(d,.025,.03,.02,dark,0,.735,.124,false);
+ box(d,.13,.04,.1,bone,0,.67,.05);
+ box(d,.11,.012,.01,dark,0,.685,.105,false);
+ for(const s of [-1,1]){
+  const arm=new THREE.Group();arm.position.set(s*.22,.57,0);d.add(arm);arms.push(arm);
+  box(arm,.05,.26,.05,bone,0,-.13,0);box(arm,.045,.24,.045,bone,0,-.39,0);
+  box(arm,.06,.06,.035,bone,0,-.53,0);
+  const hip=new THREE.Group();hip.position.set(s*.09,.02,0);d.add(hip);hips.push(hip);
+  box(hip,.06,.3,.06,bone,0,-.15,0);
+  const knee=new THREE.Group();knee.position.y=-.3;hip.add(knee);knees.push(knee);
+  box(knee,.05,.28,.05,bone,0,-.14,0);box(knee,.08,.04,.15,bone,0,-.3,.04);
+ }
+ d.userData={arms,hips,knees};return d;
+}
+let shieldMaterial=null;
+function shieldMat(){
+ // Painted hide shield: red field, white centre band with black diamonds (front and back of the sphere UV).
+ return shieldMaterial??=new THREE.MeshStandardMaterial({roughness:.85,
+  map:canvasTexture('shield',64,64,(ctx,done)=>{
+   ctx.fillStyle='#b3261e';ctx.fillRect(0,0,64,64);
+   for(const cx of [16,48]){
+    ctx.fillStyle='#f3ead6';ctx.fillRect(cx-5,0,10,64);
+    ctx.fillStyle='#1b1511';
+    for(const cy of [16,32,48]){
+     ctx.beginPath();ctx.moveTo(cx,cy-6);ctx.lineTo(cx+4,cy);ctx.lineTo(cx,cy+6);ctx.lineTo(cx-4,cy);ctx.fill();
+    }
+   }
+   done();
+  })});
+}
+const BEADS=[0xd63b2f,0xf2b632,0x2f7fd6,0x2fa65a];
+// Skeleton warrior: bead collars, headband (feather on some), leather wrap, spear and painted shield.
+function warriorSkeletonModel(i){
+ const G=bones(),d=skeletonModel(),u=d.userData,c=BEADS[i%4],c2=BEADS[(i+1)%4];
+ for(const [y,s,color] of [[.6,1,c],[.555,1.25,c2]]){
+  const beads=new THREE.Mesh(G.ring,mat(color));beads.rotation.x=Math.PI/2;
+  beads.position.y=y;beads.scale.setScalar(s);d.add(beads);
+ }
+ const band=new THREE.Mesh(G.band,mat(c2));band.rotation.x=Math.PI/2;band.position.y=.81;d.add(band);
+ if(i%2===0){box(d,.03,.26,.012,0xf4f1e8,0,.98,-.09);box(d,.032,.07,.014,c,0,1.08,-.09)}
+ box(d,.34,.16,.22,0x8a5a2b,0,.02,0);
+ // arms[0] is the right hand (-x when facing +z): spear. arms[1] carries the shield.
+ const spear=new THREE.Group();spear.position.set(0,-.52,.05);u.arms[0].add(spear);
+ const shaft=new THREE.Mesh(G.shaft,mat(0x6b4a2b));shaft.position.y=.2;spear.add(shaft);
+ const tip=new THREE.Mesh(G.tip,mat(0xc9ced1,.35));tip.position.y=1.06;spear.add(tip);
+ const shield=new THREE.Mesh(G.shield,shieldMat());shield.scale.set(.2,.36,.035);
+ shield.position.set(.06,-.38,.1);shield.castShadow=true;u.arms[1].add(shield);
+ return d;
+}
+// What comes out of Vishesh's crate: his skeleton, still wearing the crown and his red VISHESH shirt as a cape.
+function skeletonVisheshModel(){
+ const G=bones(),d=skeletonModel(0xf1ead6);
+ const scarf=new THREE.Mesh(G.ring,mat(VISHESH[1]));scarf.rotation.x=Math.PI/2;scarf.position.y=.61;d.add(scarf);
+ cylinder(d,.1,.09,.1,0xffc93c,0,.93,0,5);
+ const cape=new THREE.Group();cape.position.set(0,.58,-.07);d.add(cape);
+ const cloth=new THREE.Mesh(cubeGeometry,shirtMaterials(...VISHESH));
+ cloth.scale.set(.42,.55,.02);cloth.position.y=-.27;cloth.castShadow=true;cape.add(cloth);
+ d.userData.cape=cape;return d;
+}
+let bullEye=null;
+// Black bull facing +z, origin on the ground; legs, head and body are animated while it charges.
+function bullModel(){
+ const root=new THREE.Group(),body=new THREE.Group(),black=0x151515,hoof=0x2a2118,horn=0xe6dcc3,legs=[];
+ root.add(body);
+ bullEye??=new THREE.MeshStandardMaterial({color:0xff2a00,emissive:0xff2200,emissiveIntensity:1.6});
+ box(body,1.05,.85,2.1,black,0,1,0);
+ box(body,1.12,.5,.8,black,0,1.25,.7);
+ box(body,.9,.3,1.7,0x1d1d1d,0,.62,0);
+ const head=new THREE.Group();head.position.set(0,1.28,1.2);body.add(head);
+ box(head,.56,.54,.62,black,0,0,.16);
+ box(head,.44,.34,.34,0x252525,0,-.12,.58);
+ for(const s of [-1,1]){
+  box(head,.07,.07,.03,bullEye,s*.2,.1,.47,false);
+  box(head,.34,.1,.1,horn,s*.4,.24,.12);
+  box(head,.1,.3,.1,horn,s*.56,.4,.12).rotation.z=-s*.25;
+ }
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(.07,.015,6,12),mat(0xd4a93a,.3));
+ ring.position.set(0,-.26,.76);head.add(ring);
+ box(body,.06,.6,.06,black,0,1.05,-1.12).rotation.x=.35;
+ for(const [x,z] of [[-.34,.74],[.34,.74],[-.34,-.74],[.34,-.74]]){
+  const leg=new THREE.Group();leg.position.set(x,.8,z);body.add(leg);legs.push(leg);
+  box(leg,.2,.72,.22,black,0,-.36,0);box(leg,.22,.1,.26,hoof,0,-.75,0);
+ }
+ root.userData={body,head,legs};return root;
+}
+// Roof / nose mount point per vehicle kind, and the turret that Nexdew bolts on.
+const MOUNTS={car:[0,1.555,-.35],scooty:[-.45,.84,.5],heli:[0,2.9,4.55]};
+function weaponMountModel(i){
+ const w=WEAPONS[i],g=new THREE.Group(),len=.5+i*.12,r=.045+i*.013;
+ box(g,.46,.08,.46,0x263238,0,.04,0);
+ const turret=new THREE.Group();turret.position.y=.08;g.add(turret);
+ box(turret,.34,.2,.36,0x546e7a,0,.1,0);
+ cylinder(turret,r*.85,r,len,w.color,0,.13,.16+len/2,10).rotation.x=Math.PI/2;
+ if(i===3)for(const s of [-1,1])cylinder(turret,.07,.07,.5,0xff8c1a,s*.24,.13,.2,8).rotation.x=Math.PI/2;
+ if(i===5)box(turret,.24,.24,.3,0xffd400,0,.34,-.02);
+ const muzzle=new THREE.Object3D();muzzle.position.set(0,.13,.18+len);turret.add(muzzle);
+ g.userData={turret,muzzle};return g;
+}
+// Floating HP bar (own canvas per enemy) and cached name tags.
+function hpBar(){
+ const c=document.createElement('canvas');c.width=128;c.height=16;
+ const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+ s.renderOrder=6;
+ s.userData.set=f=>{
+  const ctx=c.getContext('2d');ctx.clearRect(0,0,128,16);
+  ctx.fillStyle='#000c';ctx.fillRect(0,0,128,16);
+  ctx.fillStyle=f>.5?'#5be37a':f>.25?'#ffd275':'#ff4d4d';ctx.fillRect(3,3,122*f,10);
+  tex.needsUpdate=true;
+ };
+ s.userData.set(1);return s;
+}
+const tagMaterials={};
+function nameTag(key,text,bg){
+ const m=tagMaterials[key]??=new THREE.SpriteMaterial({depthTest:false,transparent:true,
+  map:canvasTexture('tag'+key,320,64,(ctx,done)=>{
+   ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(4,6,312,52,14);ctx.fill();
+   ctx.fillStyle='#fff';ctx.font='800 26px system-ui,"Segoe UI Emoji",sans-serif';
+   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,160,33);done();
+  })});
+ const s=new THREE.Sprite(m);s.renderOrder=5;return s;
+}
+
+// ---------- Vishesh boss fight: weapons, enemies, crate → skeleton transformation ----------
+// Phases: idle (other missions) → boss → crate → skeleton → cleared.
+class BossSystem {
+ constructor(game){
+  this.game=game;this.phase='idle';this.enemies=[];this.shots=[];this.fx=[];this.crate=null;
+  this.mount=null;this.mountKey='';this.cooldown=0;this.jokeTimer=0;this.hudTimer=0;this.lastJoke=-1;
+  this.hits=0;this.clearTimer=0;this.spotted=false;this.army={total:0,down:0};
+  this.fxGeometry=new THREE.SphereGeometry(1,8,6);this.shotMaterials={};
+ }
+ reset(active){
+  const scene=this.game.scene;
+  for(const e of this.enemies)if(!e.gone)this.removeEnemy(e);
+  for(const s of this.shots)scene.remove(s.mesh);
+  for(const f of this.fx){scene.remove(f.mesh);f.mesh.material.dispose()}
+  if(this.crate?.obj){scene.remove(this.crate.obj);this.crate.obj.userData.tag.material.dispose()}
+  this.enemies=[];this.shots=[];this.fx=[];this.crate=null;this.army={total:0,down:0};
+  this.hits=0;this.cooldown=0;this.clearTimer=0;this.spotted=false;
+  this.jokeTimer=0;$('jokeBubble').classList.add('hidden');this.game.audio.hush();
+  this.phase=active?'boss':'idle';
+  if(active)this.spawnBoss();
+  this.syncHud();
+ }
+ ground(x,z){return this.game.world.heightAt(x,z)}
+ blocked(x,z,r){
+  if(Math.abs(x)>186||Math.abs(z)>186)return true;
+  for(const c of this.game.world.colliders)
+   if(c.h>1&&Math.abs(x-c.x)<c.hx+r&&Math.abs(z-c.z)<c.hz+r)return true;
+  return false;
+ }
+ // o: hp, x, z, yaw, base (origin height above ground), cy (aim height), radius, speed,
+ // reach (strike distance), bite (car damage %), barW/barY (world units), scale, rise (<1 = still underground).
+ addEnemy(kind,mesh,o){
+  const s=o.scale||1,bar=hpBar();
+  bar.scale.set(o.barW/s,o.barW/s/8,1);bar.position.y=o.barY/s;mesh.add(bar);
+  mesh.scale.setScalar(s);mesh.rotation.order='YXZ';mesh.rotation.y=o.yaw||0;
+  const e={kind,mesh,bar,hp:o.hp,max:o.hp,x:o.x,z:o.z,yaw:o.yaw||0,base:o.base,cy:o.cy,
+   radius:o.radius,speed:o.speed,reach:o.reach,bite:o.bite,scale:s,rise:o.rise??1,
+   walk:Math.random()*6,hitCd:1,flash:0,ghost:0,stuck:0,dead:0,gone:false};
+  this.game.scene.add(mesh);this.enemies.push(e);this.place(e);return e;
+ }
+ place(e){
+  const r=clamp(e.rise,0,1);
+  e.mesh.position.set(e.x,this.ground(e.x,e.z)+e.base-(1-r)*(e.base+1.9),e.z);
+ }
+ removeEnemy(e){
+  this.game.scene.remove(e.mesh);e.bar.material.map.dispose();e.bar.material.dispose();
+  disposeTree(e.mesh);e.gone=true;
+ }
+ spawnBoss(){
+  const v=dummyModel(...VISHESH),s=1.5;
+  cylinder(v,.15,.13,.16,0xffc93c,0,1.07,0,5);
+  const tag=nameTag('boss','👑 VISHESH · THE BOSS','#b3261ee6');
+  tag.scale.set(3/s,.6/s,1);tag.position.y=2.4/s;v.add(tag);
+  this.addEnemy('boss',v,{hp:300,x:BOSS_SPAWN.x,z:BOSS_SPAWN.z,yaw:Math.PI/2,base:.72*s,cy:1.7,
+   radius:1.3,speed:3.4,reach:2.3,bite:6,barW:1.8,barY:1.95,scale:s});
+ }
+ spawnArmy(x,z){
+  const g=this.game,bull=bullModel(),rider=skeletonVisheshModel(),ru=rider.userData,s=1.2;
+  ru.hips.forEach((h,i)=>h.rotation.set(-1.35,0,(i?1:-1)*.42));ru.knees.forEach(k=>k.rotation.x=1.45);
+  rider.position.set(0,1.44,-.2);rider.scale.setScalar(1.05);
+  bull.userData.body.add(rider);bull.userData.rider=rider;
+  const tag=nameTag('bull','💀 SKELETON VISHESH','#3a0d0de6');
+  tag.scale.set(3.2/s,.64/s,1);tag.position.y=3.55/s;bull.add(tag);
+  const yaw=Math.atan2(g.player.x-x,g.player.z-z);
+  this.addEnemy('bull',bull,{hp:150,x,z,yaw,base:0,cy:1.5,radius:1.9,speed:6.4,reach:2.8,bite:9,
+   barW:2,barY:3.1,scale:s,rise:0});
+  for(let i=0;i<6;i++){
+   const a=i/6*Math.PI*2+.3;let px=x,pz=z;
+   for(const d of [6,4.5,3]){
+    const cx=x+Math.cos(a)*d,cz=z+Math.sin(a)*d;
+    if(!this.blocked(cx,cz,.6)){px=cx;pz=cz;break}
+   }
+   this.addEnemy('skeleton',warriorSkeletonModel(i),{hp:50,x:px,z:pz,yaw,base:.72,cy:1,radius:.8,
+    speed:4.2+Math.random()*.9,reach:1.8,bite:3,barW:1.1,barY:1.35,scale:1.2,rise:-i*.25});
+  }
+  this.army={total:7,down:0};
+ }
+ // ---- shooting ----
+ fire(held){
+  const g=this.game,d=g.save.data;
+  if(g.state!=='playing'||this.cooldown>0)return;
+  if(this.phase==='idle'){
+   if(!held)g.ui.notice(d.weapons.length?'No enemies here · play the Vishesh Boss Hunt level 💀':
+    'No weapons yet · visit Nexdew Technologies ⚡ next to the start',2);
+   return;
+  }
+  if(d.activeWeapon<0){if(!held)g.ui.notice('🔫 No weapon! Visit Nexdew Technologies ⚡ next to the start',2.2);return}
+  const w=WEAPONS[d.activeWeapon],target=this.nearest();
+  if(!target){
+   this.cooldown=.25;
+   if(!held)g.ui.notice(this.phase==='crate'?'📦 Wait for it…':this.phase==='cleared'?'Level cleared! 🏆':
+    `No target within ${RANGE} m`,1.2);
+   return;
+  }
+  const origin=this.muzzle(),m=new THREE.Mesh(this.fxGeometry,this.shotMaterial(w.color));
+  m.scale.setScalar(w.size);m.position.copy(origin);g.scene.add(m);
+  this.cooldown=w.cooldown;
+  this.shots.push({mesh:m,w,target,age:0,
+   vel:this.center(target).sub(origin).normalize().multiplyScalar(w.speed)});
+  this.burst(origin,w.color,4,1.5,w.size*.6,.2);g.audio.gunshot(d.activeWeapon);
+  if(w.damage>=999)g.ui.notice('☢️ DESI NUKE INBOUND!',1.4);
+ }
+ shotMaterial(color){return this.shotMaterials[color]??=new THREE.MeshBasicMaterial({color})}
+ center(e){return new THREE.Vector3(e.x,this.ground(e.x,e.z)+e.cy,e.z)}
+ nearest(range=RANGE){
+  const p=this.game.player;let best=null,bestD=range;
+  for(const e of this.enemies){
+   if(e.hp<=0||e.rise<.6)continue;
+   const d=Math.hypot(e.x-p.x,e.z-p.z);if(d<bestD){bestD=d;best=e}
+  }
+  return best;
+ }
+ muzzle(){
+  const p=this.game.player;
+  if(!this.mount)return new THREE.Vector3(p.x,p.alt+1.6,p.z);
+  p.mesh.updateMatrixWorld(true);
+  return this.mount.userData.muzzle.getWorldPosition(new THREE.Vector3());
+ }
+ updateShots(dt){
+  for(let i=this.shots.length-1;i>=0;i--){
+   const s=this.shots[i],pos=s.mesh.position;s.age+=dt;
+   let hit=false;
+   if(s.target.hp>0){
+    const to=this.center(s.target).sub(pos),d=to.length();
+    if(d<s.target.radius*.7+s.w.speed*dt)hit=true;
+    else s.vel.lerp(to.multiplyScalar(s.w.speed/d),1-Math.exp(-dt*10)); // homing
+   }
+   if(hit)this.impact(s,pos.clone());
+   else pos.addScaledVector(s.vel,dt);
+   if(hit||s.age>3||pos.y<-1){this.game.scene.remove(s.mesh);this.shots.splice(i,1)}
+  }
+ }
+ impact(s,pos){
+  const g=this.game,w=s.w,victims=[s.target];
+  if(w.splash)for(const e of this.enemies)
+   if(e!==s.target&&e.hp>0&&e.rise>=.6&&Math.hypot(e.x-pos.x,e.z-pos.z)<=w.splash+e.radius)victims.push(e);
+  for(const e of victims)this.damage(e,w.damage);
+  if(w.damage>=999){
+   this.blast(pos,0xfff1a8,w.splash,1.1);this.blast(pos,0xff7a1a,w.splash*.6,1.4);
+   this.flash();g.audio.boom(true);g.cameraController.shake=1;
+  }else if(w.splash){
+   this.blast(pos,0xff9a3d,w.splash,.45);g.audio.boom(false);
+   g.cameraController.shake=Math.max(g.cameraController.shake,.35);
+  }
+  this.burst(pos,w.color,8,3,w.size*.7,.5);
+  // Every JOKE_EVERY hits Vishesh cracks a joke (held back while the last one is still on screen).
+  this.hits++;
+  if(this.hits>=JOKE_EVERY&&this.jokeTimer<=1.2){this.hits=0;this.joke()}
+ }
+ damage(e,amount){
+  if(e.hp<=0)return;
+  e.hp=Math.max(0,e.hp-amount);e.flash=.16;e.bar.userData.set(e.hp/e.max);
+  this.game.audio.enemyHit();
+  if(e.hp<=0)this.kill(e);
+ }
+ kill(e){
+  const g=this.game,bounty={boss:150,bull:120,skeleton:40}[e.kind];
+  g.economy.bounty(bounty);e.dead=0;e.bar.visible=false;e.mesh.scale.setScalar(e.scale);
+  if(e.kind==='boss'){
+   this.phase='crate';this.crate={t:0,x:e.x,z:e.z,boss:e,obj:null};
+   e.mesh.userData.eyes.visible=true;g.audio.visheshDeath();g.cameraController.shake=.5;
+   this.say('Arre! You got me… but a Panipat boy never really dies! 📦');
+   g.ui.notice(`💀 Vishesh is down! +${bounty} ● … wait, what’s happening?`,2.6);
+   return;
+  }
+  this.army.down++;
+  const left=this.army.total-this.army.down;
+  if(e.kind==='bull'){this.say('Tell my bull… he was a good boy. 🐂💀',true);g.audio.moo()}
+  else g.audio.bones();
+  g.ui.notice(e.kind==='bull'?`🐂 Skeleton Vishesh & the black bull are down! +${bounty} ●`:
+   `☠ Skeleton warrior down! +${bounty} ● · ${left} left`,1.8);
+  if(left<=0){
+   this.phase='cleared';this.clearTimer=3.2;g.audio.result(true);
+   g.ui.notice('🏆 LEVEL CLEARED! Vishesh and his skeleton army are history!',3.2);
+  }
+ }
+ // Boss body falls → poofs into his crate → crate rattles → bursts into Skeleton Vishesh on a black bull + army.
+ updateCrate(dt){
+  const c=this.crate;if(!c)return;
+  const g=this.game,ground=this.ground(c.x,c.z);c.t+=dt;
+  if(!c.obj){
+   const e=c.boss,k=Math.min(c.t/.45,1);
+   e.mesh.rotation.x=-k*Math.PI/2;e.mesh.position.y=ground+lerp(e.base,.3,k);
+   if(c.t<1)return;
+   const crate=crateModel('Vishesh');crate.scale.setScalar(1.4);crate.position.set(c.x,ground,c.z);
+   crate.userData.body.scale.setScalar(.01);g.scene.add(crate);c.obj=crate;
+   this.removeEnemy(e);
+   this.burst(new THREE.Vector3(c.x,ground+.6,c.z),0xf4f4f0,14,3,.35,.7);
+   g.audio.crateDrop();g.ui.notice('📦 Vishesh turned into a crate… something is rattling inside!',2.4);
+  }
+  const t=c.t-1,body=c.obj.userData.body,shake=clamp((t-.8)/2,0,1);
+  body.scale.setScalar(Math.min(t/.3,1));
+  body.rotation.z=Math.sin(t*38)*.09*shake;body.position.y=Math.abs(Math.sin(t*19))*.12*shake;
+  c.obj.userData.tag.position.y=1.55+Math.sin(t*2.4)*.07;
+  if(Math.random()<dt*8*shake)this.burst(new THREE.Vector3(c.x,ground+.3,c.z),0x9c8466,2,2,.14,.5);
+  if(t<3.2)return;
+  g.scene.remove(c.obj);c.obj.userData.tag.material.dispose();
+  const at=new THREE.Vector3(c.x,ground+.8,c.z);
+  this.burst(at,0x8a5a2b,12,5,.2,.8);this.burst(at,0xefe6c8,16,6,.16,.9);this.blast(at,0x2a0a0a,5,.6);
+  g.audio.boom(false);g.audio.moo();g.cameraController.shake=.6;
+  this.crate=null;this.phase='skeleton';this.hits=0;this.spawnArmy(c.x,c.z);
+  this.say(SKELETON_JOKES[0],true);
+  g.ui.notice('☠ The crate burst! Skeleton Vishesh rides a BLACK BULL with his skeleton army — shoot them all!',3.6);
+ }
+ // ---- enemy AI ----
+ chase(e,tx,tz,dt,boost=1){
+  const dx=tx-e.x,dz=tz-e.z,d=Math.hypot(dx,dz);
+  e.yaw=Math.atan2(dx,dz);
+  if(d<=e.reach)return false;
+  const step=Math.min(e.speed*boost*dt,d-e.reach),nx=e.x+dx/d*step,nz=e.z+dz/d*step,r=e.radius*.5;
+  const ox=e.x,oz=e.z;
+  if(e.ghost>0||!this.blocked(nx,nz,r)){e.x=nx;e.z=nz}
+  else if(!this.blocked(nx,e.z,r))e.x=nx;
+  else if(!this.blocked(e.x,nz,r))e.z=nz;
+  // Wedged against a building: shuffle through it for a moment instead of freezing in place.
+  e.stuck=Math.hypot(e.x-ox,e.z-oz)<step*.3?e.stuck+dt:0;
+  if(e.stuck>.8){e.ghost=1.6;e.stuck=0}
+  return true;
+ }
+ updateEnemies(dt){
+  const g=this.game,p=g.player;
+  for(const e of this.enemies){
+   if(e.gone)continue;
+   if(e.hp<=0){this.animateDeath(e,dt);continue}
+   if(e.rise<1){e.rise=Math.min(1,e.rise+dt*1.1);this.place(e);continue}
+   e.hitCd=Math.max(0,e.hitCd-dt);e.flash=Math.max(0,e.flash-dt);e.ghost=Math.max(0,e.ghost-dt);
+   const d=Math.hypot(p.x-e.x,p.z-e.z),awake=e.kind!=='boss'||d<70;
+   if(e.kind==='boss'&&awake&&!this.spotted){
+    this.spotted=true;this.say('Oye Jatin! Come and get me if you dare… 300 HP of pure attitude! 😤');
+   }
+   const charge=e.kind==='bull'&&d<26;
+   if(charge&&!e.charging)g.audio.moo();
+   e.charging=charge;
+   const moving=awake&&this.chase(e,p.x,p.z,dt,charge?1.6:1);
+   this.animate(e,dt,moving);
+   if(awake&&d<e.reach+.7&&p.alt<3&&e.hitCd<=0)this.strike(e,d);
+   this.place(e);
+   e.mesh.rotation.y+=angleDiff(e.yaw,e.mesh.rotation.y)*(1-Math.exp(-dt*8));
+   e.mesh.scale.setScalar(e.scale*(1+e.flash*.9));
+  }
+  // Keep the army from stacking into one blob.
+  const alive=this.enemies.filter(e=>!e.gone&&e.hp>0&&e.rise>=1);
+  for(let i=0;i<alive.length;i++)for(let j=i+1;j<alive.length;j++){
+   const a=alive[i],b=alive[j],dx=b.x-a.x,dz=b.z-a.z,dist=Math.hypot(dx,dz)||.01;
+   const min=(a.radius+b.radius)*.7;
+   if(dist<min){const k=(min-dist)/2/dist;a.x-=dx*k;a.z-=dz*k;b.x+=dx*k;b.z+=dz*k}
+  }
+  if(this.enemies.some(e=>e.gone))this.enemies=this.enemies.filter(e=>!e.gone);
+ }
+ animate(e,dt,moving){
+  const u=e.mesh.userData,t=(e.walk+=dt*(moving?e.speed*1.9:1.6));
+  if(e.kind==='bull'){
+   u.legs.forEach((l,i)=>l.rotation.x=moving?Math.sin(t*1.3+[0,Math.PI,Math.PI/2,Math.PI*1.5][i])*.6:0);
+   u.body.position.y=moving?Math.abs(Math.sin(t*1.3))*.12:0;
+   u.head.rotation.x=moving?Math.sin(t*1.3)*.12:Math.sin(t)*.05;
+   const r=u.rider.userData;
+   r.arms[0].rotation.set(-2.5+Math.sin(t*2.6)*.5,0,-.2);r.arms[1].rotation.x=-1.1;
+   r.cape.rotation.x=.35+Math.sin(t*3.1)*.2;
+   return;
+  }
+  if(moving){
+   u.hips.forEach((h,i)=>h.rotation.x=Math.sin(t+i*Math.PI)*.62);
+   u.knees.forEach((k,i)=>k.rotation.x=Math.max(0,Math.sin(t+i*Math.PI+1))*.9);
+   u.arms.forEach((a,i)=>a.rotation.set(-Math.sin(t+i*Math.PI)*.55,0,0));
+  }else{
+   u.hips.forEach(h=>h.rotation.x=0);u.knees.forEach(k=>k.rotation.x=0);
+   u.arms.forEach((a,i)=>a.rotation.set(e.kind==='boss'?-2.6+Math.sin(t*3+i)*.3:Math.sin(t+i)*.2,0,
+    e.kind==='boss'?(i?1:-1)*.3:0)); // the boss taunts with both arms up
+  }
+  if(e.kind==='skeleton'&&e.hitCd>.75)u.arms[0].rotation.x=-1.6; // spear thrust right after a strike
+ }
+ strike(e,d){
+  const g=this.game,p=g.player;
+  e.hitCd=e.kind==='skeleton'?1.1:e.kind==='bull'?1.8:1.5;
+  p.health=Math.max(0,p.health-e.bite);p.speed*=.5;
+  g.cameraController.shake=Math.max(g.cameraController.shake,e.kind==='bull'?.55:.28);g.audio.crash();
+  g.ui.notice(e.kind==='boss'?`👋 Vishesh slapped your car! −${e.bite}%`:
+   e.kind==='bull'?`🐂 The black bull rammed you! −${e.bite}%`:`🗡️ Skeleton spear poke! −${e.bite}%`,1.2);
+  if(e.kind==='bull'){ // bounce back to line up the next charge
+   const k=4/(d||1);e.x-=(p.x-e.x)*k;e.z-=(p.z-e.z)*k;
+  }
+ }
+ animateDeath(e,dt){
+  if(e.kind==='boss')return; // the crate sequence owns the boss body
+  e.dead+=dt;const k=Math.min(e.dead/.45,1),m=e.mesh,ground=this.ground(e.x,e.z);
+  if(e.kind==='bull'){m.rotation.z=k*Math.PI/2;m.position.y=ground+k*.5*e.scale}
+  else{m.rotation.x=-k*Math.PI/2;m.position.y=ground+lerp(e.base,.15,k)}
+  const sink=e.dead-(e.kind==='bull'?2:1.1);
+  if(sink>0)m.position.y-=sink*1.4;
+  if(sink>1.3)this.removeEnemy(e);
+ }
+ // ---- jokes ----
+ joke(){
+  const skeleton=this.phase==='skeleton';
+  if(!skeleton&&this.phase!=='boss')return;
+  if(skeleton&&!this.enemies.some(e=>e.kind==='bull'&&e.hp>0))return; // Skeleton Vishesh is already gone
+  const list=skeleton?SKELETON_JOKES:VISHESH_JOKES;
+  let i=Math.floor(Math.random()*list.length);if(i===this.lastJoke)i=(i+1)%list.length;
+  this.lastJoke=i;this.say(list[i],skeleton);
+ }
+ say(text,skeleton=false){
+  const el=$('jokeBubble'),who=document.createElement('b');
+  who.textContent=skeleton?'💀 Skeleton Vishesh: ':'😈 Vishesh: ';
+  el.classList.add('hidden');void el.offsetWidth; // restart the pop-in animation
+  el.replaceChildren(who,`“${text}”`);el.classList.remove('hidden');
+  this.jokeTimer=4.8;this.game.audio.speak(text,skeleton?.5:1.35);
+ }
+ // ---- effects ----
+ burst(pos,color,count,spread,size,life){
+  for(let i=0;i<count;i++){
+   const m=new THREE.Mesh(this.fxGeometry,new THREE.MeshBasicMaterial({color,transparent:true,
+    opacity:.9,depthWrite:false}));
+   m.position.copy(pos);m.scale.setScalar(size);this.game.scene.add(m);
+   const a=Math.random()*Math.PI*2,k=.4+Math.random();
+   this.fx.push({mesh:m,age:0,life,size,grow:0,
+    v:new THREE.Vector3(Math.cos(a)*spread*k,1+Math.random()*spread*.6,Math.sin(a)*spread*k)});
+  }
+ }
+ blast(pos,color,radius,life){
+  const m=new THREE.Mesh(this.fxGeometry,new THREE.MeshBasicMaterial({color,transparent:true,
+   opacity:.7,depthWrite:false}));
+  m.position.copy(pos);m.scale.setScalar(.1);this.game.scene.add(m);
+  this.fx.push({mesh:m,age:0,life,size:.1,grow:radius,v:new THREE.Vector3()});
+ }
+ flash(){
+  const f=$('flash');f.style.transition='none';f.style.opacity=.9;void f.offsetWidth;
+  f.style.transition='opacity 1.3s ease-out';f.style.opacity=0;
+ }
+ updateFx(dt){
+  for(let i=this.fx.length-1;i>=0;i--){
+   const f=this.fx[i],k=(f.age+=dt)/f.life;
+   if(k>=1){this.game.scene.remove(f.mesh);f.mesh.material.dispose();this.fx.splice(i,1);continue}
+   if(f.grow)f.mesh.scale.setScalar(f.size+f.grow*Math.sqrt(k));
+   else{f.v.y-=6*dt;f.mesh.position.addScaledVector(f.v,dt)}
+   f.mesh.material.opacity=(f.grow?.7:.9)*(1-k);
+  }
+ }
+ // ---- vehicle turret ----
+ syncMount(){
+  const p=this.game.player,a=this.game.save.data.activeWeapon,key=a+':'+p.id;
+  if(this.mount?.parent===p.mesh&&this.mountKey===key)return;
+  if(this.mount){this.mount.removeFromParent();disposeTree(this.mount)}
+  this.mount=null;this.mountKey=key;
+  if(a<0)return;
+  this.mount=weaponMountModel(a);this.mount.position.set(...MOUNTS[CARS[p.id].kind||'car']);
+  p.mesh.add(this.mount);
+ }
+ aimTurret(dt){
+  if(!this.mount)return;
+  const p=this.game.player,t=this.phase==='idle'?null:this.nearest(),turret=this.mount.userData.turret;
+  const want=t?angleDiff(Math.atan2(t.x-p.x,t.z-p.z),p.yaw):0;
+  turret.rotation.y+=angleDiff(want,turret.rotation.y)*(1-Math.exp(-dt*8));
+ }
+ cycleWeapon(){
+  const g=this.game,d=g.save.data;
+  if(g.state!=='playing')return;
+  if(!d.weapons.length){g.ui.notice('No weapons yet · visit Nexdew Technologies ⚡ next to the start',2.2);return}
+  const owned=[...d.weapons].sort((a,b)=>a-b),next=owned[(owned.indexOf(d.activeWeapon)+1)%owned.length];
+  g.economy.selectWeapon(next);g.audio.click();
+  g.ui.notice(`${WEAPONS[next].emoji} ${WEAPONS[next].name} equipped`,1.2);this.syncHud();
+ }
+ // ---- per-step update, HUD and mission hooks ----
+ update(dt){
+  const g=this.game;
+  this.syncMount();
+  this.cooldown=Math.max(0,this.cooldown-dt);
+  if(this.jokeTimer>0){this.jokeTimer-=dt;if(this.jokeTimer<=0)$('jokeBubble').classList.add('hidden')}
+  if(this.phase!=='idle'){
+   if(g.input.fire||g.input.keys.has('f'))this.fire(true);
+   this.updateEnemies(dt);this.updateCrate(dt);this.updateShots(dt);
+   if(this.phase==='cleared'&&(this.clearTimer-=dt)<=0){g.finish(true);return}
+  }
+  this.updateFx(dt);this.aimTurret(dt);
+  if((this.hudTimer+=dt)>.1){this.hudTimer=0;this.syncHud()}
+ }
+ syncHud(){
+  const g=this.game,d=g.save.data,p=g.player,active=this.phase!=='idle',w=WEAPONS[d.activeWeapon];
+  const near=Math.hypot(p.x-STORE.door.x,p.z-STORE.door.z)<STORE.radius&&p.alt<3;
+  $('storeBtn').classList.toggle('hidden',!near);
+  $('weaponHud').classList.toggle('hidden',!active);
+  $('fireBtn').classList.toggle('hidden',!active||!w);
+  $('fireBtn').classList.toggle('cooling',this.cooldown>.15);
+  $('weaponName').textContent=w?`${w.emoji} ${w.name}`:'🔫 No weapon';
+  $('weaponInfo').textContent=!w?'Buy one at Nexdew Tech ⚡':
+   `${w.damage>=999?'Instant kill':w.damage+' damage'}${d.weapons.length>1?' · tap / Q to switch':''}`;
+  $('enemyPanel').classList.toggle('hidden',!active);
+  if(!active)return;
+  const boss=this.enemies.find(e=>e.kind==='boss'),bull=this.enemies.find(e=>e.kind==='bull');
+  let name,frac=0,sub;
+  if(this.phase==='boss'&&boss){
+   name=`👑 VISHESH · ${Math.ceil(boss.hp)} / ${boss.max} HP`;frac=boss.hp/boss.max;
+   sub=`${Math.round(Math.hypot(boss.x-p.x,boss.z-p.z))} m away · cracks a joke every ${JOKE_EVERY} hits`;
+  }else if(this.phase==='crate'){name='📦 VISHESH’S CRATE';sub='Something is rattling inside…'}
+  else if(this.phase==='skeleton'){
+   const hp=bull&&bull.hp>0?bull.hp:0;
+   name=hp?`💀 SKELETON VISHESH · ${Math.ceil(hp)} / ${bull.max} HP`:'💀 Skeleton Vishesh is down!';
+   frac=hp?hp/bull.max:0;
+   sub=`${hp?'🐂 rides the black bull · ':''}☠ ${this.army.down} / ${this.army.total} down · warriors 50 HP each`;
+  }else{name='🏆 LEVEL CLEARED';sub=`☠ ${this.army.down} / ${this.army.total} down`}
+  $('enemyName').textContent=name;$('enemyHp').style.width=frac*100+'%';$('enemySub').textContent=sub;
+ }
+ target(){
+  if(this.phase==='boss'&&!this.game.save.data.weapons.length)return STORE.door;
+  if(this.crate)return {x:this.crate.x,z:this.crate.z};
+  const e=this.nearest(Infinity);return e?{x:e.x,z:e.z}:BOSS_SPAWN;
+ }
+ objective(){
+  const boss=this.enemies.find(e=>e.kind==='boss');
+  if(this.phase==='boss')return this.game.save.data.weapons.length?
+   `Shoot Vishesh · ${Math.ceil(boss?.hp??0)} HP left · F / FIRE to shoot`:
+   'Buy a weapon at Nexdew Technologies ⚡ (beside the start)';
+  if(this.phase==='crate')return 'Vishesh turned into a crate… stay sharp! 📦';
+  if(this.phase==='skeleton')return `Clear the skeleton army · ${this.army.down} / ${this.army.total} down`;
+  return 'Level cleared! 🏆';
+ }
+ progress(){
+  const boss=this.enemies.find(e=>e.kind==='boss');
+  if(this.phase==='boss')return boss?(1-boss.hp/boss.max)*.5:0;
+  if(this.phase==='crate')return .5;
+  if(this.phase==='skeleton')return .5+this.army.down/Math.max(1,this.army.total)*.5;
+  return 1;
+ }
+ navHint(){
+  if(this.phase==='boss')return this.game.save.data.weapons.length?'VISHESH':'NEXDEW STORE';
+  return this.phase==='crate'?'THE CRATE':this.phase==='skeleton'?'SKELETON ARMY':'CLEARED';
+ }
+ drawMap(ctx,xy){
+  for(const e of this.enemies){
+   if(e.gone||e.hp<=0)continue;
+   const [x,y]=xy(e.x,e.z);
+   ctx.fillStyle=e.kind==='boss'?'#ff3b4d':e.kind==='bull'?'#b0271a':'#efe6c8';
+   ctx.strokeStyle='#1a0808';ctx.lineWidth=2;
+   ctx.beginPath();ctx.arc(x,y,e.kind==='skeleton'?3.5:6.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  if(this.crate){const [x,y]=xy(this.crate.x,this.crate.z);ctx.fillStyle='#c8a06a';ctx.fillRect(x-5,y-5,10,10)}
+ }
+}
 // ---------- Chase camera ----------
 class CameraController {
  constructor(game){this.game=game;this.look=new THREE.Vector3();this.shake=0}
@@ -1362,9 +2178,11 @@ class MissionSystem {
  }
  start(id){
   this.id=id;this.def=MISSIONS[id];this.index=0;this.remaining=this.def.time;
-  this.hold=0;this.collisions=0;this.marker.visible=true;this.updateMarker();
+  this.hold=0;this.collisions=0;this.boss=this.def.type==='boss';
+  this.marker.visible=!this.boss;this.updateMarker();
  }
  target(){
+  if(this.boss)return this.game.bossSystem.target();
   const p=this.def.points[Math.min(this.index,this.def.points.length-1)];
   return {x:p[0],z:p[1]};
  }
@@ -1378,9 +2196,13 @@ class MissionSystem {
  }
  update(dt){
   const g=this.game,p=g.player;
+  if(this.boss&&g.bossSystem.phase==='cleared')return; // victory lap: the clock stops
   this.remaining=Math.max(0,this.remaining-dt);
-  if(this.remaining<=0){g.finish(false,'Time ran out. Try a smoother, faster route.');return}
-  if(p.health<=0){g.finish(false,'Your car took too much damage.');return}
+  if(this.remaining<=0){g.finish(false,this.boss?'Time ran out. Vishesh and his army are still out there… 💀':
+   'Time ran out. Try a smoother, faster route.');return}
+  if(p.health<=0){g.finish(false,this.boss?'The skeleton army wrecked your car. Buy a stronger weapon and try again!':
+   'Your car took too much damage.');return}
+  if(this.boss)return; // BossSystem ends the level when the army is cleared
   const dest=this.target(),d=distance(p,dest);
   this.beam.material.opacity=.065+Math.sin(g.playTime*3)*.025;
   if(this.isParking()){
@@ -1432,7 +2254,7 @@ class UI {
  }
  menu(){
   const g=this.game;g.state='menu';g.mission.marker.visible=false;g.input.clear();
-  g.player.setCar(g.save.data.selected);g.player.reset();
+  g.bossSystem?.reset(false);g.player.setCar(g.save.data.selected);g.player.reset();
   const count=Object.keys(g.save.data.completed).length;
   this.show(`<div class="topline"><span class="eyebrow">MODEL TOWN → SONDHAPUR · PANIPAT</span>
     <span class="coins">● ${g.save.data.coins.toLocaleString()}</span></div>
@@ -1444,8 +2266,9 @@ class UI {
    <div class="grid2" style="margin-top:10px">
     ${this.button('garage','Garage & Upgrades')}${this.button('settings','Settings')}</div>
    <div id="footer" class="small">Touch: drag wheel · hold pedals · D/R switches gear<br>
-    Keyboard: WASD / arrows · R reverse · Esc pause<br>
-    Scooty &amp; ND Chinook: double-tap the vehicle (or press V) to make Vishesh jump<br>
+    Keyboard: WASD / arrows · R reverse · Esc pause · F fire · Q switch weapon<br>
+    Double-tap your vehicle (or press V) to make Vishesh jump<br>
+    Nexdew Technologies (next to the start) sells weapons for the Vishesh Boss Hunt<br>
     ${g.save.available?'Progress saves automatically on this browser.':
      'Storage unavailable: progress may not survive closing the page.'}</div>`);
   this.bind('play',()=>this.missions());this.bind('garage',()=>this.garage());
@@ -1466,10 +2289,13 @@ class UI {
  }
  brief(id){
   const g=this.game,m=MISSIONS[id];
+  const rules=m.type==='boss'?`${m.time} seconds · Vishesh 300 HP → his crate → Skeleton Vishesh on a
+   black bull (150 HP) + 6 skeleton warriors (50 HP each) · they hit your car, so keep moving`:
+   `${m.time} seconds · ${m.points.length} objectives ·
+   ${m.type==='clean'?'Zero collisions allowed':'Do not wreck your car'}`;
   this.show(this.header(m.name)+`<p>${m.text}</p>
    <div class="cards"><div class="card"><b>Mission rules</b>
-   <span>${m.time} seconds · ${m.points.length} objectives ·
-   ${m.type==='clean'?'Zero collisions allowed':'Do not wreck your car'}</span></div>
+   <span>${rules}</span></div>
    <div class="card"><b>Rewards</b><span>${m.reward} base coins + condition/time bonus.
    First completion adds 150 coins.</span></div></div>
    <p class="small">Traffic uses right-hand lanes. Brake before corners.
@@ -1568,6 +2394,37 @@ class UI {
   this.bind('garage',()=>{this.preview=g.save.data.selected;this.garage()});
   this.bind('missions',()=>this.missions());this.bind('menu',()=>this.menu());
  }
+ weaponStore(){
+  const g=this.game,d=g.save.data;g.state='store';g.input.clear();
+  const rows=WEAPONS.map((w,i)=>{
+   const owned=d.weapons.includes(i),active=d.activeWeapon===i,nuke=w.damage>=999;
+   return `<div class="card row" style="margin:0${active?';border-color:var(--accent)':''}"><div>
+    <b>${w.emoji} ${w.name}</b>
+    <span>${nuke?'Instant kill':w.damage+' damage'} per hit · ${w.cooldown}s reload${w.splash?` · ${w.splash} m blast`:''}<br>
+    ${nuke?'One shot clears a crowd':`Vishesh in ${Math.ceil(300/w.damage)} hits · skeleton in ${Math.ceil(50/w.damage)}`}
+    · ${w.desc}</span></div>
+    ${this.button('weapon'+i,active?'Equipped ✓':owned?'Equip':w.price+' ●',active?'primary':owned?'':'gold')}</div>`;
+  }).join('');
+  this.show(this.header('Nexdew Technologies')+
+   `<div class="row" style="justify-content:flex-start"><img src="${ND_LOGO}" alt="ND logo"
+    style="height:46px;background:#fff;border-radius:10px;padding:5px">
+   <p style="margin:0">Weapon store &amp; vehicle mods. Your weapon is bolted onto your ride and auto-aims at the
+    nearest enemy within ${RANGE} m.</p></div>
+   <div class="cards">${rows}</div>
+   <p class="small">Vishesh 300 HP · Skeleton Vishesh on the black bull 150 HP · skeleton warriors 50 HP each.
+    Kills pay a bounty (150 / 120 / 40 ●). F or FIRE shoots (hold for auto-fire) · Q or tap the weapon badge to switch.
+    Vishesh cracks a joke every ${JOKE_EVERY} hits.</p>`+
+   this.button('leave','Back to the road','primary full'));
+  WEAPONS.forEach((w,i)=>{
+   if(!d.weapons.includes(i)&&d.coins<w.price)$('weapon'+i).disabled=true;
+   this.bind('weapon'+i,()=>{
+    if(d.weapons.includes(i))g.economy.selectWeapon(i);
+    else if(g.economy.buyWeapon(i))g.audio.checkpoint();
+    this.weaponStore();
+   });
+  });
+  this.bind('leave',()=>g.closeStore());
+ }
  notice(text,seconds=2){
   $('notice').textContent=text;$('notice').style.opacity=1;this.noticeTimer=seconds;
  }
@@ -1585,14 +2442,15 @@ class UI {
   $('timer').style.color=t<20?'#ff998b':'#f2f7fa';
   $('health').textContent='CAR '+Math.ceil(p.health)+'%';
   $('health').style.color=p.health<35?'#ff998b':'#65edbe';
+  const boss=m.boss?g.bossSystem:null;
   $('objectiveTitle').textContent=m.def.name;
-  $('objectiveDetail').textContent=m.isParking()?m.parkHint||'Reach the parking bay':
+  $('objectiveDetail').textContent=boss?boss.objective():m.isParking()?m.parkHint||'Reach the parking bay':
    `Checkpoint ${m.index+1} / ${m.def.points.length} · ${
     m.def.type==='clean'?'No collisions allowed':'Follow the green rings'}`;
-  $('objectiveProgress').firstElementChild.style.width=
-   ((m.index+(m.isParking()?m.hold/2:0))/m.def.points.length*100)+'%';
+  $('objectiveProgress').firstElementChild.style.width=(boss?boss.progress()*100:
+   (m.index+(m.isParking()?m.hold/2:0))/m.def.points.length*100)+'%';
   $('navDistance').textContent=Math.round(d)+' m';
-  $('navHint').textContent=m.isParking()?'PARK & HOLD':'NEXT CHECKPOINT';
+  $('navHint').textContent=boss?boss.navHint():m.isParking()?'PARK & HOLD':'NEXT CHECKPOINT';
   const targetAngle=Math.atan2(dest.x-p.x,dest.z-p.z);
   $('navArrow').style.transform=`rotate(${-angleDiff(targetAngle,p.yaw)*180/Math.PI}deg)`;
   this.drawMap();
@@ -1621,18 +2479,29 @@ class UI {
   }
   ctx.save();ctx.translate(...xy(160,-100));ctx.rotate(-Math.PI/2);
   ctx.fillStyle='#fff';ctx.fillText('NH-44',0,0);ctx.restore();
-  ctx.lineWidth=3;ctx.strokeStyle='#65edbe';ctx.setLineDash([5,4]);ctx.beginPath();
-  const previous=m.index===0?[4,32]:m.def.points[m.index-1];
-  ctx.moveTo(...xy(...previous));
-  for(let i=m.index;i<m.def.points.length;i++)ctx.lineTo(...xy(...m.def.points[i]));
-  ctx.stroke();ctx.setLineDash([]);
+  if(!m.boss){
+   ctx.lineWidth=3;ctx.strokeStyle='#65edbe';ctx.setLineDash([5,4]);ctx.beginPath();
+   const previous=m.index===0?[4,32]:m.def.points[m.index-1];
+   ctx.moveTo(...xy(...previous));
+   for(let i=m.index;i<m.def.points.length;i++)ctx.lineTo(...xy(...m.def.points[i]));
+   ctx.stroke();ctx.setLineDash([]);
+  }
   for(const t of g.traffic.cars){
    const [x,y]=xy(t.x,t.z);ctx.fillStyle='#e8c993';ctx.fillRect(x-2,y-2,4,4);
   }
-  const target=m.target(),[tx,ty]=xy(target.x,target.z);
-  ctx.fillStyle='#65edbe';ctx.beginPath();ctx.arc(tx,ty,7,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#174538';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
-  ctx.fillText(m.isParking()?'P':'•',tx,ty+3);
+  // Nexdew Technologies store.
+  const [sx,sy]=xy(STORE.x,STORE.z);
+  ctx.fillStyle='#0d2231';ctx.strokeStyle='#65edbe';ctx.lineWidth=2;
+  ctx.fillRect(sx-9,sy-9,18,18);ctx.strokeRect(sx-9,sy-9,18,18);
+  ctx.fillStyle='#65edbe';ctx.font='900 10px system-ui,sans-serif';ctx.textAlign='center';
+  ctx.fillText('ND',sx,sy+1);
+  if(m.boss)g.bossSystem.drawMap(ctx,xy);
+  else{
+   const target=m.target(),[tx,ty]=xy(target.x,target.z);
+   ctx.fillStyle='#65edbe';ctx.beginPath();ctx.arc(tx,ty,7,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle='#174538';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+   ctx.fillText(m.isParking()?'P':'•',tx,ty+3);
+  }
   const [px,py]=xy(g.player.x,g.player.z);
   ctx.save();ctx.translate(px,py);ctx.rotate(-g.player.yaw);
   ctx.fillStyle='#fff';ctx.strokeStyle='#193343';ctx.lineWidth=2;
@@ -1668,6 +2537,7 @@ class Game {
   this.input=new InputSystem(this);
   this.cameraController=new CameraController(this);
   this.ui=new UI(this);
+  this.bossSystem=new BossSystem(this);
   this.traffic.reset(9);this.world.update(0);
   this.applyQuality();this.resize();
   window.addEventListener('resize',()=>this.resize());
@@ -1699,9 +2569,19 @@ class Game {
   this.audio.init();this.input.clear();
   this.player.setCar(this.save.data.selected);this.player.reset();
   this.playTime=0;this.accumulator=0;this.traffic.reset(MISSIONS[id].traffic);
+  const boss=MISSIONS[id].type==='boss';this.bossSystem.reset(boss);
   this.mission.start(id);this.world.update(0);this.state='playing';
   this.cameraController.snap();this.ui.driving();
-  this.ui.notice('Shift started · Follow the green route',2.6);
+  this.ui.notice(boss?'💀 Boss Hunt! Arm up at Nexdew Technologies ⚡ then hunt Vishesh':
+   'Shift started · Follow the green route',2.8);
+ }
+ openStore(){
+  if(this.state!=='playing')return;
+  this.audio.init();this.ui.weaponStore();
+ }
+ closeStore(){
+  if(this.state!=='store')return;
+  this.state='playing';this.input.clear();this.accumulator=0;this.ui.driving();
  }
  pause(){
   if(this.state!=='playing')return;
@@ -1722,7 +2602,7 @@ class Game {
   if(this.state!=='playing')return;
   this.audio.init();
   const r=this.player.jumpVishesh();
-  if(r==='none')this.ui.notice('No Vishesh on board · ride the Scooty or ND Chinook',2);
+  if(r==='none')this.ui.notice('No Vishesh on board',2);
   else if(r==='gone')this.ui.notice('Vishesh is already gone… only his crate is left 📦',1.8);
   else{this.audio.visheshJump();this.ui.notice('Vishesh jumped! 😱',1.4)}
  }
@@ -1752,6 +2632,7 @@ class Game {
   this.player.update(dt,input);
   if(this.state==='playing')this.mission.update(dt);
   this.world.update(this.playTime);
+  this.bossSystem.update(dt);
  }
  frame(now){
   const dt=Math.min((now-this.last)/1000,.1);this.last=now;this.visualTime+=dt;
